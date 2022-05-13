@@ -38,7 +38,7 @@ def current():
     res = []
     for row in df.itertuples():
         d = {}
-        d["time"] = row.alarm_time.isoformat()
+        d["time"] = jst2utc(row.alarm_time)
         d["group"] = row.groups
         d["severity"] = row.severity
         d["status"] = row.status
