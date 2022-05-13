@@ -40,7 +40,6 @@ def current():
         d = {}
         d["time"] = row.alarm_time.isoformat()
         d["group"] = row.groups
-        d["severity_id"] = row.severity_id
         d["severity"] = row.severity
         d["status"] = row.status
         d["message"] = row.descr
