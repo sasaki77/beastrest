@@ -35,16 +35,17 @@ def current():
         ret = {"value": False, "descriptor": msg}
         return jsonify(ret), 500
 
-    res = []
-    for row in df.itertuples():
-        d = {}
-        d["time"] = jst2utc(row.alarm_time)
-        d["group"] = row.groups
-        d["severity"] = row.severity
-        d["status"] = row.status
-        d["message"] = row.descr
-        d["record"] = row.pv_name
-        res.append(d)
+    df["alarm_time"] = df["alarm_time"].map(jst2utc)
+    df = df.drop(columns=["sub_group", "sub_sub_group", "severity_id"])
+    df = df.rename(
+        columns={
+            "alarm_time": "time",
+            "groups": "group",
+            "descr": "message",
+            "pv_name": "record",
+        }
+    )
+    res = df.to_dict(orient="records")
 
     return jsonify(res)
 
@@ -71,17 +72,26 @@ def get_current_ann():
     else:
         time = df["alarm_time"].dt.strftime("%s%f").str[:-3]
 
-    times = time.astype(int).tolist()
-    res = []
-    index = 0
-    for row in df.itertuples():
-        d = {}
-        d["time"] = times[index]
-        d["title"] = row.descr
-        d["tags"] = row.groups
-        d["text"] = row.pv_name
-        res.append(d)
-        index += 1
+    df["alarm_time"] = time.astype(int).tolist()
+    df = df.drop(
+        columns=[
+            "group",
+            "sub_group",
+            "sub_sub_group",
+            "severity_id",
+            "severity",
+            "status",
+        ]
+    )
+    df = df.rename(
+        columns={
+            "alarm_time": "time",
+            "descr": "title",
+            "groups": "tags",
+            "pv_name": "text",
+        }
+    )
+    res = df.to_dict(orient="records")
 
     return jsonify(res)
 
@@ -112,29 +122,19 @@ def history():
     df = df.dropna()
 
     todt = lambda x: datetime.strptime(x, "%Y-%m-%d %H:%M:%S.%f")
-    eventtime = df["eventtime"].map(todt).map(jst2utc)
+    df["eventtime"] = df["eventtime"].map(todt).map(jst2utc)
     alarms = df["message"].copy()
     recovers = df["message"].copy()
 
     alarms[df["severity"] == "OK"] = ""
     recovers[df["severity"] != "OK"] = ""
 
-    ets = eventtime.tolist()
-    alms = alarms.tolist()
-    rcvs = recovers.tolist()
-    res = []
-    index = 0
-    for row in df.itertuples():
-        d = {}
-        d["time"] = ets[index]
-        d["group"] = row.group
-        d["severity"] = row.severity
-        d["status"] = row.status
-        d["alarm"] = alms[index]
-        d["recover"] = rcvs[index]
-        d["record"] = row.record_name
-        res.append(d)
-        index += 1
+    df["alarm"] = alarms.tolist()
+    df["recover"] = recovers.tolist()
+
+    df = df.drop(columns=["id", "datum", "message"])
+    df = df.rename(columns={"record_name": "record", "eventtime": "time"})
+    res = df.to_dict(orient="records")
 
     return jsonify(res)
 
@@ -173,17 +173,17 @@ def get_history_ann():
     else:
         time = df["eventtime"].dt.strftime("%s%f").str[:-3]
 
-    times = time.astype(int).tolist()
-    res = []
-    index = 0
-    for row in df.itertuples():
-        d = {}
-        d["time"] = times[index]
-        d["title"] = row.message
-        d["tags"] = row.group
-        d["text"] = row.severity
-        res.append(d)
-        index += 1
+    df["eventtime"] = time.astype(int).tolist()
+    df = df.drop(columns=["id", "datum", "record_name", "status"])
+    df = df.rename(
+        columns={
+            "eventtime": "time",
+            "message": "title",
+            "group": "tags",
+            "severity": "text",
+        }
+    )
+    res = df.to_dict(orient="records")
 
     return jsonify(res)
 
